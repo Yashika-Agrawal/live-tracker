@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login – Live Tracker</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background: #f0f4f8;
+      }
+      .card {
+        background: white;
+        padding: 2rem 3rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        text-align: center;
+      }
+      h1 { margin-bottom: 0.5rem; font-size: 1.5rem; }
+      p { color: #666; margin-bottom: 2rem; }
+      a.google-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: #4285F4;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 1rem;
+        font-weight: 500;
+      }
+      a.google-btn:hover { background: #3367D6; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>🗺️ Live Tracker</h1>
+      <p>Sign in to share and see live locations</p>
+      <a class="google-btn" href="/auth/google">
+        <img
+          src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+          width="20" height="20"
+          alt="Google logo"
+        />
+        Sign in with Google
+      </a>
+    </div>
+  </body>
+</html>

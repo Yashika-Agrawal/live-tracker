@@ -3,85 +3,172 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Live tracking application</title>
+    <title>Live Tracking</title>
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     />
     <style>
-      #map {
-        height: 90vh;
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: sans-serif; }
+      #topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.6rem 1rem;
+        background: #1a1a2e;
+        color: white;
       }
+      #topbar span { font-size: 0.95rem; }
+      #topbar a {
+        color: #aaa;
+        text-decoration: none;
+        font-size: 0.85rem;
+        border: 1px solid #555;
+        padding: 4px 10px;
+        border-radius: 6px;
+      }
+      #topbar a:hover { color: white; border-color: white; }
+      #map { height: calc(100vh - 46px); }
     </style>
   </head>
   <body>
+    <div id="topbar">
+      <span id="user-info">Loading...</span>
+      <a href="/logout">Logout</a>
+    </div>
     <div id="map"></div>
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-      crossorigin=""
-    ></script>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket=io();
-        var map = L.map("map").setView([51.505, -0.09], 13);
-        const remoteMarker=new Map()
-        socket.on("server:location:update", (data)=>{
-          const {id,latitude, longitude}=data;
-          if(!remoteMarker.has(id))
-        {
-          const marker = L.marker([latitude, longitude]);
-          marker.addTo(map).bindPopup("You are here");
-          remoteMarker.set(id, marker);
+      // ── 1. Get token ──────────────────────────────────────────────
+      // On first load after OAuth callback, token is in URL param
+      const urlParams = new URLSearchParams(window.location.search);
+      const tokenFromUrl = urlParams.get("token");
+      if (tokenFromUrl) {
+        localStorage.setItem("tracker_token", tokenFromUrl);
+        // Clean URL without reloading
+        window.history.replaceState({}, "", "/");
+      }
+
+      const token = localStorage.getItem("tracker_token");
+      if (!token) {
+        window.location.href = "/login.html";
+      }
+
+      // ── 2. Decode token to get user info (JWT is base64, no secret needed on client) ──
+      function parseJwt(t) {
+        try {
+          return JSON.parse(atob(t.split(".")[1]));
+        } catch {
+          return null;
         }
-        else{
-          const existingMarker = remoteMarker.get(id);
-          existingMarker.setLatLng([latitude, longitude]);
-        }
-        })
+      }
+      const currentUser = parseJwt(token);
+      if (!currentUser) {
+        localStorage.removeItem("tracker_token");
+        window.location.href = "/login.html";
+      }
+      document.getElementById("user-info").textContent =
+        `👤 ${currentUser.name}`;
+
+      // ── 3. Connect socket with token ──────────────────────────────
+      const socket = io({ auth: { token } });
+
+      socket.on("connect_error", (err) => {
+        console.error("Socket auth error:", err.message);
+        localStorage.removeItem("tracker_token");
+        window.location.href = "/login.html";
+      });
+
+      // ── 4. Map setup ──────────────────────────────────────────────
+      const map = L.map("map").setView([20.5937, 78.9629], 5); // India default
+
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
-        attribution:
-          '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
-      function getUsersCurrentLocation() {
+
+      const remoteMarkers = new Map(); // userId → marker
+      let currentLocationMarker = null;
+      let mapCentred = false;
+
+      // ── 5. Handle incoming location updates ──────────────────────
+      socket.on("server:location:update", (data) => {
+        const { id, name, latitude, longitude } = data;
+
+        // Skip rendering own marker from remote (we handle it locally)
+        if (id === currentUser.id) return;
+
+        if (!remoteMarkers.has(id)) {
+          const marker = L.marker([latitude, longitude]);
+          marker.addTo(map).bindPopup(name || id);
+          remoteMarkers.set(id, marker);
+        } else {
+          remoteMarkers.get(id).setLatLng([latitude, longitude]);
+        }
+      });
+
+      // Remove marker when user disconnects
+      socket.on("server:user:disconnected", ({ id }) => {
+        if (remoteMarkers.has(id)) {
+          remoteMarkers.get(id).remove();
+          remoteMarkers.delete(id);
+        }
+      });
+
+      // ── 6. Geolocation + sending updates ─────────────────────────
+      function getCurrentPosition() {
         return new Promise((res, rej) => {
-          if ("geolocation" in navigator) {
-            //check if geo location sensor present in system
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                const { latitude, longitude } = position.coords;
-                console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
-                res({ latitude, longitude });
-              },
-              (error) => {
-                rej(error);
-              },
-              {
-                enableHighAccuracy: true,
-              }
-            );
-          } else {
-            alert("Geo location is not available in this browser");
+          if (!("geolocation" in navigator)) {
+            alert("Geolocation not supported in this browser");
+            return;
           }
+          navigator.geolocation.getCurrentPosition(res, rej, {
+            enableHighAccuracy: true,
+          });
         });
       }
-      let currentLocationMark = null;
+
       async function main() {
-        setInterval(async () => {
-          const { latitude, longitude } = await getUsersCurrentLocation();
-          socket.emit("client:location:update", {latitude, longitude})
-          if (!currentLocationMark) {
-            const marker = L.marker([latitude, longitude]);
-            marker.addTo(map).bindPopup("You are here");
+        try {
+          // Get initial position immediately
+          const pos = await getCurrentPosition();
+          const { latitude, longitude } = pos.coords;
+
+          currentLocationMarker = L.marker([latitude, longitude])
+            .addTo(map)
+            .bindPopup(`${currentUser.name} (You)`);
+
+          if (!mapCentred) {
+            map.setView([latitude, longitude], 15);
+            mapCentred = true;
           }
-          else{
-            currentLocationMark.setLatLng({latitude, longitude});
+
+          socket.emit("client:location:update", { latitude, longitude });
+        } catch (err) {
+          console.error("Could not get location:", err.message);
+        }
+
+        // Then send every 10 seconds
+        setInterval(async () => {
+          try {
+            const pos = await getCurrentPosition();
+            const { latitude, longitude } = pos.coords;
+
+            socket.emit("client:location:update", { latitude, longitude });
+
+            if (currentLocationMarker) {
+              currentLocationMarker.setLatLng([latitude, longitude]);
+            }
+          } catch (err) {
+            console.warn("Location update failed:", err.message);
           }
         }, 10 * 1000);
       }
+
       window.addEventListener("load", main);
     </script>
   </body>

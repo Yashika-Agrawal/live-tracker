@@ -1,4 +1,5 @@
 export async function startKafkaConsumer(kafkaClient, io, PORT) {
+  try {
     const consumer = kafkaClient.consumer({
       groupId: `socket-server-${PORT}`,
     });
@@ -19,4 +20,8 @@ export async function startKafkaConsumer(kafkaClient, io, PORT) {
         });
       },
     });
+  } catch (error) {
+    console.log("kafka error", error)
+  }
+    
   }

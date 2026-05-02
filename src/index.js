@@ -1,11 +1,9 @@
 import "dotenv/config";
 import http from "node:http";
 import express from "express";
-import session from "express-session";
 import passport from "passport";
 import path from "node:path";
 import { Server } from "socket.io";
-
 import { setupPassport } from "./config/passport.js";
 import authRoutes from "./auth/routes.js";
 import { socketAuthMiddleware } from "./middleware/socketAuth.js";
@@ -26,16 +24,7 @@ async function main() {
   // 🧠 Middlewares
   app.use(express.json());
 
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET,
-      resave: false,
-      saveUninitialized: false,
-    })
-  );
-
   app.use(passport.initialize());
-  app.use(passport.session());
 
   // 🧠 Auth routes
   app.use("/auth", authRoutes);

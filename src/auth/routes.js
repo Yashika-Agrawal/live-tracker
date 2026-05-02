@@ -6,12 +6,20 @@ const router = express.Router();
 
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    session: false,
+    state:false
+  })
 );
 
 router.get(
   "/google/callback",
-  passport.authenticate("google", { failureRedirect: "/login.html" }),
+  passport.authenticate("google", {
+    failureRedirect: "/login.html",
+    session: false, 
+    state:false,
+  }),
   (req, res) => {
     const token = jwt.sign(
       {
@@ -28,8 +36,5 @@ router.get(
   }
 );
 
-router.get("/logout", (req, res) => {
-  req.logout(() => res.redirect("/login.html"));
-});
 
 export default router;

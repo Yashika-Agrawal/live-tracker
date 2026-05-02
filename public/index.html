@@ -31,12 +31,24 @@
       }
       #topbar a:hover { color: white; border-color: white; }
       #map { height: calc(100vh - 46px); }
+      #topbar button {
+      color: #aaa;
+      background: transparent;
+      border: 1px solid #555;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #topbar button:hover {
+      color: white;
+      border-color: white;
+    }
     </style>
   </head>
   <body>
     <div id="topbar">
       <span id="user-info">Loading...</span>
-      <a href="/logout">Logout</a>
+      <button onclick="logout()">Logout</button>
     </div>
     <div id="map"></div>
 
@@ -170,6 +182,18 @@
       }
 
       window.addEventListener("load", main);
+      function logout() {
+  // 1. remove token
+  localStorage.removeItem("tracker_token");
+
+  // 2. disconnect socket
+  if (socket) {
+    socket.disconnect();
+  }
+
+  // 3. redirect
+  window.location.href = "/login.html";
+}
     </script>
   </body>
 </html>

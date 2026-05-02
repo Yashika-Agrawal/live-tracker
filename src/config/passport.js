@@ -7,7 +7,7 @@ export function setupPassport() {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: `${process.env.BASE_URL}/auth/google/callback`,
+        callbackURL: `${process.env.BASE_URL || "http://localhost:8000"}/auth/google/callback`,
       },
       (accessToken, refreshToken, profile, done) => {
         const user = {
